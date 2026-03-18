@@ -156,6 +156,23 @@ const Index = () => {
     setProfileOpen(false);
   };
 
+  // Текстовые сообщения
+  const [textInput, setTextInput] = useState("");
+  const [textMessages, setTextMessages] = useState<ChatMessage[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const sendText = () => {
+    const t = textInput.trim();
+    if (!t) return;
+    setTextMessages((prev) => [...prev, { id: crypto.randomUUID(), text: t, outgoing: true, time: `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, "0")}` }]);
+    setTextInput("");
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); }
+  };
+
   // Отправка фото/видео файлов
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileMessages, setFileMessages] = useState<{ id: string; url: string; name: string; type: string; timestamp: Date }[]>([]);
@@ -417,6 +434,21 @@ const Index = () => {
               )
             )}
 
+            {/* Текстовые сообщения */}
+            {textMessages.map((msg) => (
+              <div key={msg.id} className="flex justify-end">
+                <div className="max-w-xs lg:max-w-md">
+                  <div className="bg-[#2b5278] rounded-2xl rounded-br-sm px-4 py-2.5">
+                    <p className="text-white text-sm">{msg.text}</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-1 mt-1 mr-1">
+                    <span className="text-[#8096a7] text-xs">{msg.time}</span>
+                    <Icon name="CheckCheck" size={14} className="text-[#2AABEE]" />
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/* Файловые сообщения (фото/видео) */}
             {fileMessages.map((fm) => (
               <div key={fm.id} className="flex justify-end group">
@@ -444,6 +476,8 @@ const Index = () => {
                 </div>
               </div>
             ))}
+
+            <div ref={chatEndRef} />
 
             {/* Секция "Начало работы" */}
             <div className="bg-[#182533] border border-[#243447] rounded-2xl p-4 sm:p-6 mt-6">
@@ -504,18 +538,30 @@ const Index = () => {
           {/* Поле ввода */}
           <div className="p-3 bg-[#17212b] border-t border-[#0d1821]">
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileSelect} />
-            <div className="bg-[#242f3d] rounded-full px-4 py-3 flex items-center gap-3">
-              <Icon name="Smile" size={20} className="text-[#8096a7]" />
-              <span className="text-[#8096a7] text-sm flex-1">Написать сообщение...</span>
-              <button onClick={() => fileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors" title="Прикрепить фото/видео">
+            <div className="bg-[#242f3d] rounded-full px-4 py-2 flex items-center gap-2">
+              <Icon name="Smile" size={20} className="text-[#8096a7] flex-shrink-0" />
+              <input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Написать сообщение..."
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder-[#8096a7] py-1.5 min-w-0"
+              />
+              <button onClick={() => fileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors flex-shrink-0" title="Прикрепить фото/видео">
                 <Icon name="Paperclip" size={18} className="text-[#8096a7]" />
               </button>
-              <button onClick={() => setShowVideoRecorder(true)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors" title="Записать видео">
+              <button onClick={() => setShowVideoRecorder(true)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors flex-shrink-0" title="Записать видео">
                 <Icon name="Video" size={18} className="text-[#8096a7]" />
               </button>
-              <button onClick={() => setShowVoiceRecorder(true)} className="w-8 h-8 bg-[#2AABEE] hover:bg-[#1a9fd8] rounded-full flex items-center justify-center transition-colors" title="Записать голосовое">
-                <Icon name="Mic" size={16} className="text-white" />
-              </button>
+              {textInput.trim() ? (
+                <button onClick={sendText} className="w-8 h-8 bg-[#2AABEE] hover:bg-[#1a9fd8] rounded-full flex items-center justify-center transition-colors flex-shrink-0">
+                  <Icon name="Send" size={16} className="text-white" />
+                </button>
+              ) : (
+                <button onClick={() => setShowVoiceRecorder(true)} className="w-8 h-8 bg-[#2AABEE] hover:bg-[#1a9fd8] rounded-full flex items-center justify-center transition-colors flex-shrink-0" title="Записать голосовое">
+                  <Icon name="Mic" size={16} className="text-white" />
+                </button>
+              )}
             </div>
           </div>
         </div>
