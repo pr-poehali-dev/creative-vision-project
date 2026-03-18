@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Get tokens without admin password",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 403,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

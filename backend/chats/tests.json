@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Get chats without session",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
