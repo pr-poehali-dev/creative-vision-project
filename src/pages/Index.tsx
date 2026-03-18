@@ -1,67 +1,154 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import VideoRecorder from "@/components/VideoRecorder";
+import VoiceRecorder from "@/components/VoiceRecorder";
 
-interface RecordedVideo {
+interface MediaItem {
   id: string;
   url: string;
   duration: number;
   timestamp: Date;
+  type: "video" | "voice";
 }
 
-interface StoredVideo {
+interface StoredItem {
   id: string;
   base64: string;
   duration: number;
   timestamp: string;
+  type: "video" | "voice";
 }
 
-const STORAGE_KEY = "blizko_videos";
+const STORAGE_KEY = "blizko_media";
 
-const loadVideos = (): RecordedVideo[] => {
+const loadItems = (): MediaItem[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const stored: StoredVideo[] = JSON.parse(raw);
+    const stored: StoredItem[] = JSON.parse(raw);
     return stored.map((s) => ({
       id: s.id,
       url: s.base64,
       duration: s.duration,
       timestamp: new Date(s.timestamp),
+      type: s.type,
     }));
   } catch {
     return [];
   }
 };
 
-const saveVideos = (videos: RecordedVideo[]) => {
-  const stored: StoredVideo[] = videos.map((v) => ({
+const saveItems = (items: MediaItem[]) => {
+  const stored: StoredItem[] = items.map((v) => ({
     id: v.id,
     base64: v.url,
     duration: v.duration,
     timestamp: v.timestamp.toISOString(),
+    type: v.type,
   }));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+};
+
+const VoiceMessage = ({
+  item,
+  onDelete,
+}: {
+  item: MediaItem;
+  onDelete: () => void;
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+    else { audioRef.current.play(); setIsPlaying(true); }
+  };
+
+  return (
+    <div className="flex justify-end group">
+      <div className="max-w-xs lg:max-w-sm w-64">
+        <div className="bg-[#2b5278] rounded-2xl rounded-br-sm px-3 py-2.5 relative">
+          <audio
+            ref={audioRef}
+            src={item.url}
+            onTimeUpdate={() => {
+              if (!audioRef.current) return;
+              setCurrentTime(Math.floor(audioRef.current.currentTime));
+              setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0);
+            }}
+            onEnded={() => { setIsPlaying(false); setProgress(0); setCurrentTime(0); }}
+          />
+          <button
+            onClick={onDelete}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-black/60 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+          >
+            <Icon name="Trash2" size={11} className="text-white" />
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggle}
+              className="w-9 h-9 bg-[#2AABEE] hover:bg-[#1a9fd8] rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+            >
+              <Icon name={isPlaying ? "Pause" : "Play"} size={16} className="text-white" />
+            </button>
+            <div className="flex-1">
+              <div className="flex items-center gap-0.5 h-6 mb-0.5">
+                {Array(28).fill(0).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-full"
+                    style={{
+                      height: `${6 + Math.sin(i * 0.8) * 9 + Math.cos(i * 1.5) * 5}px`,
+                      backgroundColor: (i / 28) * 100 <= progress ? "#fff" : "rgba(255,255,255,0.3)",
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/70 text-xs font-mono">{fmt(currentTime)}</span>
+                <span className="text-white/70 text-xs font-mono">{fmt(item.duration)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-1 mt-1 mr-1">
+          <span className="text-[#8096a7] text-xs">
+            {item.timestamp.getHours()}:{String(item.timestamp.getMinutes()).padStart(2, "0")}
+          </span>
+          <Icon name="CheckCheck" size={14} className="text-[#2AABEE]" />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [showRecorder, setShowRecorder] = useState(false);
-  const [videos, setVideos] = useState<RecordedVideo[]>(() => loadVideos());
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [items, setItems] = useState<MediaItem[]>(() => loadItems());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    saveVideos(videos);
-  }, [videos]);
+    saveItems(items);
+  }, [items]);
 
-  const handleVideoReady = (video: RecordedVideo) => {
-    setVideos((prev) => [...prev, video]);
+  const handleVideoReady = (video: { id: string; url: string; duration: number; timestamp: Date }) => {
+    setItems((prev) => [...prev, { ...video, type: "video" }]);
+  };
+
+  const handleVoiceReady = (voice: { id: string; url: string; duration: number; timestamp: Date }) => {
+    setItems((prev) => [...prev, { ...voice, type: "voice" }]);
   };
 
   const handleDelete = (id: string) => {
-    setVideos((prev) => prev.filter((v) => v.id !== id));
+    setItems((prev) => prev.filter((v) => v.id !== id));
     setConfirmDeleteId(null);
   };
 
@@ -262,38 +349,36 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Записанные видео */}
-            {videos.map((video) => (
-              <div key={video.id} className="flex justify-end group">
-                <div className="max-w-xs lg:max-w-sm">
-                  <div className="bg-[#2b5278] rounded-2xl rounded-br-sm overflow-hidden relative">
-                    <video
-                      src={video.url}
-                      controls
-                      className="w-full max-h-48 object-cover"
-                    />
-                    {/* Кнопка удаления */}
-                    <button
-                      onClick={() => setConfirmDeleteId(video.id)}
-                      className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                      title="Удалить видео"
-                    >
-                      <Icon name="Trash2" size={13} className="text-white" />
-                    </button>
-                    <div className="px-3 py-1.5 flex items-center gap-1.5">
-                      <Icon name="Video" size={12} className="text-[#2AABEE]" />
-                      <span className="text-[#8096a7] text-xs">Видео · {fmt(video.duration)}</span>
+            {/* Медиасообщения (видео и голосовые) */}
+            {items.map((item) =>
+              item.type === "voice" ? (
+                <VoiceMessage key={item.id} item={item} onDelete={() => setConfirmDeleteId(item.id)} />
+              ) : (
+                <div key={item.id} className="flex justify-end group">
+                  <div className="max-w-xs lg:max-w-sm">
+                    <div className="bg-[#2b5278] rounded-2xl rounded-br-sm overflow-hidden relative">
+                      <video src={item.url} controls className="w-full max-h-48 object-cover" />
+                      <button
+                        onClick={() => setConfirmDeleteId(item.id)}
+                        className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Icon name="Trash2" size={13} className="text-white" />
+                      </button>
+                      <div className="px-3 py-1.5 flex items-center gap-1.5">
+                        <Icon name="Video" size={12} className="text-[#2AABEE]" />
+                        <span className="text-[#8096a7] text-xs">Видео · {fmt(item.duration)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1 mt-1 mr-1">
+                      <span className="text-[#8096a7] text-xs">
+                        {item.timestamp.getHours()}:{String(item.timestamp.getMinutes()).padStart(2, "0")}
+                      </span>
+                      <Icon name="CheckCheck" size={14} className="text-[#2AABEE]" />
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-1 mt-1 mr-1">
-                    <span className="text-[#8096a7] text-xs">
-                      {video.timestamp.getHours()}:{String(video.timestamp.getMinutes()).padStart(2, "0")}
-                    </span>
-                    <Icon name="CheckCheck" size={14} className="text-[#2AABEE]" />
-                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
 
             {/* Диалог подтверждения удаления */}
             {confirmDeleteId && (
@@ -304,7 +389,7 @@ const Index = () => {
                       <Icon name="Trash2" size={18} className="text-red-400" />
                     </div>
                     <div>
-                      <div className="text-white font-semibold text-sm">Удалить видео?</div>
+                      <div className="text-white font-semibold text-sm">Удалить сообщение?</div>
                       <div className="text-[#8096a7] text-xs mt-0.5">Это действие нельзя отменить</div>
                     </div>
                   </div>
@@ -424,15 +509,19 @@ const Index = () => {
               <span className="text-[#8096a7] text-sm flex-1">Написать сообщение...</span>
               <Icon name="Paperclip" size={20} className="text-[#8096a7]" />
               <button
-                onClick={() => setShowRecorder(true)}
+                onClick={() => setShowVideoRecorder(true)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors"
                 title="Записать видео"
               >
-                <Icon name="Video" size={18} className="text-[#8096a7] hover:text-[#2AABEE]" />
+                <Icon name="Video" size={18} className="text-[#8096a7]" />
               </button>
-              <div className="w-8 h-8 bg-[#2AABEE] rounded-full flex items-center justify-center">
+              <button
+                onClick={() => setShowVoiceRecorder(true)}
+                className="w-8 h-8 bg-[#2AABEE] hover:bg-[#1a9fd8] rounded-full flex items-center justify-center transition-colors"
+                title="Записать голосовое"
+              >
                 <Icon name="Mic" size={16} className="text-white" />
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -476,11 +565,16 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Модальный рекордер */}
-      {showRecorder && (
+      {showVideoRecorder && (
         <VideoRecorder
           onVideoReady={handleVideoReady}
-          onClose={() => setShowRecorder(false)}
+          onClose={() => setShowVideoRecorder(false)}
+        />
+      )}
+      {showVoiceRecorder && (
+        <VoiceRecorder
+          onVoiceReady={handleVoiceReady}
+          onClose={() => setShowVoiceRecorder(false)}
         />
       )}
     </div>
