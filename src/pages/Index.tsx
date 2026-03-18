@@ -1,10 +1,26 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import VideoRecorder from "@/components/VideoRecorder";
+
+interface RecordedVideo {
+  id: string;
+  url: string;
+  duration: number;
+  timestamp: Date;
+}
 
 const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [videos, setVideos] = useState<RecordedVideo[]>([]);
+
+  const handleVideoReady = (video: RecordedVideo) => {
+    setVideos((prev) => [...prev, video]);
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   return (
     <div className="min-h-screen bg-[#1c2733] text-white overflow-x-hidden">
@@ -201,6 +217,31 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Записанные видео */}
+            {videos.map((video) => (
+              <div key={video.id} className="flex justify-end">
+                <div className="max-w-xs lg:max-w-sm">
+                  <div className="bg-[#2b5278] rounded-2xl rounded-br-sm overflow-hidden">
+                    <video
+                      src={video.url}
+                      controls
+                      className="w-full max-h-48 object-cover"
+                    />
+                    <div className="px-3 py-1.5 flex items-center gap-1.5">
+                      <Icon name="Video" size={12} className="text-[#2AABEE]" />
+                      <span className="text-[#8096a7] text-xs">Видео · {fmt(video.duration)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-1 mt-1 mr-1">
+                    <span className="text-[#8096a7] text-xs">
+                      {video.timestamp.getHours()}:{String(video.timestamp.getMinutes()).padStart(2, "0")}
+                    </span>
+                    <Icon name="CheckCheck" size={14} className="text-[#2AABEE]" />
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/* Секция "Начало работы" */}
             <div className="bg-[#182533] border border-[#243447] rounded-2xl p-4 sm:p-6 mt-6">
               <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex items-center gap-2">
@@ -297,6 +338,13 @@ const Index = () => {
               <Icon name="Smile" size={20} className="text-[#8096a7]" />
               <span className="text-[#8096a7] text-sm flex-1">Написать сообщение...</span>
               <Icon name="Paperclip" size={20} className="text-[#8096a7]" />
+              <button
+                onClick={() => setShowRecorder(true)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2AABEE]/20 transition-colors"
+                title="Записать видео"
+              >
+                <Icon name="Video" size={18} className="text-[#8096a7] hover:text-[#2AABEE]" />
+              </button>
               <div className="w-8 h-8 bg-[#2AABEE] rounded-full flex items-center justify-center">
                 <Icon name="Mic" size={16} className="text-white" />
               </div>
@@ -342,6 +390,14 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Модальный рекордер */}
+      {showRecorder && (
+        <VideoRecorder
+          onVideoReady={handleVideoReady}
+          onClose={() => setShowRecorder(false)}
+        />
+      )}
     </div>
   );
 };
