@@ -64,9 +64,13 @@ export const VideoRecorder = ({ onVideoReady, onClose }: VideoRecorderProps) => 
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      setRecordedUrl(url);
-      setIsPreviewing(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setRecordedUrl(base64);
+        setIsPreviewing(true);
+      };
+      reader.readAsDataURL(blob);
     };
     mr.start(200);
     mediaRecorderRef.current = mr;
@@ -100,7 +104,6 @@ export const VideoRecorder = ({ onVideoReady, onClose }: VideoRecorderProps) => 
   };
 
   const handleRetake = () => {
-    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
     setRecordedUrl(null);
     setIsPreviewing(false);
     setElapsed(0);

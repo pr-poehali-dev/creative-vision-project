@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import VideoRecorder from "@/components/VideoRecorder";
@@ -10,14 +10,59 @@ interface RecordedVideo {
   timestamp: Date;
 }
 
+interface StoredVideo {
+  id: string;
+  base64: string;
+  duration: number;
+  timestamp: string;
+}
+
+const STORAGE_KEY = "blizko_videos";
+
+const loadVideos = (): RecordedVideo[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const stored: StoredVideo[] = JSON.parse(raw);
+    return stored.map((s) => ({
+      id: s.id,
+      url: s.base64,
+      duration: s.duration,
+      timestamp: new Date(s.timestamp),
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const saveVideos = (videos: RecordedVideo[]) => {
+  const stored: StoredVideo[] = videos.map((v) => ({
+    id: v.id,
+    base64: v.url,
+    duration: v.duration,
+    timestamp: v.timestamp.toISOString(),
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+};
+
 const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
-  const [videos, setVideos] = useState<RecordedVideo[]>([]);
+  const [videos, setVideos] = useState<RecordedVideo[]>(() => loadVideos());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    saveVideos(videos);
+  }, [videos]);
 
   const handleVideoReady = (video: RecordedVideo) => {
     setVideos((prev) => [...prev, video]);
+  };
+
+  const handleDelete = (id: string) => {
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+    setConfirmDeleteId(null);
   };
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -219,14 +264,22 @@ const Index = () => {
 
             {/* Записанные видео */}
             {videos.map((video) => (
-              <div key={video.id} className="flex justify-end">
+              <div key={video.id} className="flex justify-end group">
                 <div className="max-w-xs lg:max-w-sm">
-                  <div className="bg-[#2b5278] rounded-2xl rounded-br-sm overflow-hidden">
+                  <div className="bg-[#2b5278] rounded-2xl rounded-br-sm overflow-hidden relative">
                     <video
                       src={video.url}
                       controls
                       className="w-full max-h-48 object-cover"
                     />
+                    {/* Кнопка удаления */}
+                    <button
+                      onClick={() => setConfirmDeleteId(video.id)}
+                      className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                      title="Удалить видео"
+                    >
+                      <Icon name="Trash2" size={13} className="text-white" />
+                    </button>
                     <div className="px-3 py-1.5 flex items-center gap-1.5">
                       <Icon name="Video" size={12} className="text-[#2AABEE]" />
                       <span className="text-[#8096a7] text-xs">Видео · {fmt(video.duration)}</span>
@@ -241,6 +294,38 @@ const Index = () => {
                 </div>
               </div>
             ))}
+
+            {/* Диалог подтверждения удаления */}
+            {confirmDeleteId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-[#17212b] rounded-2xl p-5 w-full max-w-xs shadow-2xl border border-[#243447]">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Icon name="Trash2" size={18} className="text-red-400" />
+                    </div>
+                    <div>
+                      <div className="text-white font-semibold text-sm">Удалить видео?</div>
+                      <div className="text-[#8096a7] text-xs mt-0.5">Это действие нельзя отменить</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => setConfirmDeleteId(null)}
+                      variant="outline"
+                      className="flex-1 border-[#243447] text-[#8096a7] hover:text-white hover:bg-[#242f3d] bg-transparent rounded-full text-sm"
+                    >
+                      Отмена
+                    </Button>
+                    <Button
+                      onClick={() => handleDelete(confirmDeleteId)}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm"
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Секция "Начало работы" */}
             <div className="bg-[#182533] border border-[#243447] rounded-2xl p-4 sm:p-6 mt-6">
